@@ -1,0 +1,122 @@
+plugins:
+  - serverless-api-gateway-caching
+service: artilleryTesting
+
+custom:
+  apiGatewayCaching:
+    enabled: true
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: test
+  region: us-east-1
+  iamRoleStatements:
+  - Effect: Allow
+    Action:
+      - dynamodb:DescribeTable
+      - dynamodb:Query
+      - dynamodb:Scan
+      - dynamodb:GetItem
+      - dynamodb:PutItem
+      - dynamodb:UpdateItem
+      - dynamodb:DeleteItem
+    Resource:
+      - "Fn::GetAtt": [ OnDemandTableTest, Arn ]
+      - "Fn::GetAtt": [ ProvisionedTableTest, Arn ]
+
+functions:
+  mock:
+    handler: handler.mock
+    events:
+      - http:
+          path: mock
+          cors: true
+          method: get
+          integration: mock
+          request:
+            template:
+              application/json: '{"statusCode": 200}'
+          response:
+            template: "Hello World"
+            statusCodes:
+              200:
+                pattern: ''
+  vanillaHelloWorld:
+    handler: vanilla.handler
+    events:
+      - http:
+          path: vanilla
+          cors: true
+          method: get
+          
+  goldenHelloWorld:
+    handler: goldenhw.handler
+    events:
+      - http: 
+          path: goldenhw
+          method: get
+
+  goldenHelloWorldLatency:
+    handler: goldenhwlat.handler
+    events:
+      - http: 
+          path: goldenhwlat
+          method: get
+
+# No deberia ser Golden?
+  vanillaCachedHelloWorld:
+    handler: vanillaCached.handler
+    events:
+      - http:
+          path: vanillaCached
+          cors: true
+          method: get
+          caching:
+            enabled: true
+
+  vanillaAuthorizer:
+    handler: vanillaAuthorizer.handler
+    events:
+      - http:
+          path: vanillaAuthorizer
+          method: get
+          authorizer: 
+            name: authorizerFunction
+            type: request
+  
+  authorizerFunction:
+    handler: authorizerFunc.handler
+
+#y VPC lambdas?
+
+resources:
+  Resources:
+    OnDemandTableTest:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: OnDemandTableTest
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: noteId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: noteId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+    ProvisionedTableTest:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ProvisionedTableTest
+        AttributeDefinitions:
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: email
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 2
+          WriteCapacityUnits: 2
