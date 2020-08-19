@@ -1,5 +1,6 @@
 plugins:
   - serverless-api-gateway-caching
+  - amazon-dax-client
 service: artilleryTesting
 
 custom:
@@ -26,7 +27,7 @@ provider:
       - "Fn::GetAtt": [ ProvisionedTableTest, Arn ]
 
 functions:
-  mock:
+  mock: #API Gateway Mock
     handler: handler.mock
     events:
       - http:
@@ -42,7 +43,8 @@ functions:
             statusCodes:
               200:
                 pattern: ''
-  vanillaHelloWorld:
+
+  vanillaHelloWorld: #API Gateway -> Lambda (responde “Hello World”)
     handler: vanilla.handler
     events:
       - http:
@@ -50,22 +52,22 @@ functions:
           cors: true
           method: get
           
-  goldenHelloWorld:
+  goldenHelloWorld: #API Gateway -> Lambda (con Golden API, responde “Hello World!”)
     handler: goldenhw.handler
     events:
       - http: 
           path: goldenhw
           method: get
 
-  goldenHelloWorldLatency:
+  goldenHelloWorldLatency: #API Gateway -> Lambda (con Golden API, invoca un servicio http - 100% estable pero con latencia de 2000ms)
     handler: goldenhwlat.handler
     events:
       - http: 
           path: goldenhwlat
           method: get
 
-# No deberia ser Golden?
-  vanillaCachedHelloWorld:
+# Deberia ser Golden?
+  vanillaCachedHelloWorld: #API Gateway (con Caché activado) -> Lambda (responde “Hello World”)
     handler: vanillaCached.handler
     events:
       - http:
@@ -75,7 +77,7 @@ functions:
           caching:
             enabled: true
 
-  vanillaAuthorizer:
+  vanillaAuthorizer: #API Gateway (con el Authorizer de Shared Services) -> Lambda
     handler: vanillaAuthorizer.handler
     events:
       - http:
@@ -87,7 +89,35 @@ functions:
   
   authorizerFunction:
     handler: authorizerFunc.handler
+    
+  vanillaDynamoOD: #API Gateway -> Lambda -> DynamoDB (Default Capacity)
+    handler: vanillaDynamoProv.handler
+    events:
+      - http:
+          path: vanillaDynamoProv
+          method: get
 
+  vanillaDynamoProv: #API Gateway -> Lambda -> DynamoDB (On - Demand Capacity)
+    handler: vanillaDynamoOD.handler
+    events:
+      - http:
+          path: vanillaDynamoOD
+          method: get
+
+  vanillaDynamoDAX: #API Gateway -> Lambda -> Dynamo (con caché DAX)
+    handler: vanillaDynamoDAX.handler
+    environment:
+      DAX_ENDPOINT: { Fn::GetAtt: [DaxCluster, ClusterDiscoveryEndpoint] }
+    vpc:
+    securityGroupIds:
+      - Fn::GetAtt: [DAXSecurityGroup, GroupId]
+    subnetIds:
+      - Ref: DAXSubnet
+    events:
+      - http:
+          path: vanillaDynamoDAX
+          method: get
+    role: !GetAtt DAXRole.Arn
 #y VPC lambdas?
 
 resources:
@@ -112,11 +142,106 @@ resources:
       Properties:
         TableName: ProvisionedTableTest
         AttributeDefinitions:
-          - AttributeName: email
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: noteId
             AttributeType: S
         KeySchema:
-          - AttributeName: email
+          - AttributeName: userId
             KeyType: HASH
+          - AttributeName: noteId
+            KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 2
           WriteCapacityUnits: 2
+
+    DAXCluster:
+      Type: AWS::DAX::Cluster
+      Properties:
+        ClusterName: daxcluster
+        Description: Dax Cluster 
+        IAMRoleARN: !GetAtt DAXRole.Arn
+        NodeType: dax.t2.small
+        ReplicationFactor: 1
+        SecurityGroupIds: 
+          - !GetAtt DAXSecurityGroup.GroupId
+        SubnetGroupName: !Ref DAXSubnetGroup
+
+    DAXRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+            - Action:
+              - sts:AssumeRole
+              Effect: Allow
+              Principal:
+                Service:
+                - dax.amazonaws.com
+          Version: '2012-10-17'
+        RoleName: DAXRoleForTesting
+        Policies:
+          -
+            PolicyName: DAXAccess
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Resource: '*'
+                  Action:
+                    - 'dax:PutItem'
+                    - 'dax:GetItem'
+                    - 'dynamodb:DescribeTable'
+                    - 'dynamodb:GetItem'
+                    - 'dynamodb:PutItem'
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+
+    DAXSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security Group for DAX
+        GroupName: DAX SG
+        VpcId: !Ref DAXVPC
+  
+    DAXSecurityGroupIngress:
+      Type: AWS::EC2::SecurityGroupIngress
+      DependsOn: DAXSecurityGroup
+      Properties:
+        GroupId: !GetAtt DAXSecurityGroup.GroupId
+        IpProtocol: tcp
+        FromPort: 8111
+        ToPort: 8111
+        SourceSecurityGroupId: !GetAtt DAXSecurityGroup.GroupId
+    
+    DAXVPC:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 10.0.0.0/16
+        EnableDnsHostnames: true
+        EnableDnsSupport: true
+        InstanceTenancy: default
+        Tags:
+          - Key: Name
+            Value: DAXTest
+
+    DAXSubnet:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone:
+          Fn::Select:
+            - 0
+            - Fn::GetAZs: ''
+        CidrBlock: 10.0.0.0/20
+        Tags:
+          - Key: Name
+            Value: DAXTest
+        VpcId: !Ref DAXVPC
+    
+    DAXSubnetGroup:
+      Type: AWS::DAX::SubnetGroup
+      Properties:
+        Description: Subnet group for DAX Test
+        SubnetGroupName: DAXTestGN
+        SubnetIds: 
+          - !Ref DAXSubnet

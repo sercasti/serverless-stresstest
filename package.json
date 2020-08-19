@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "dependencies": {},
   "devDependencies": {
+    "amazon-dax-client": "^1.2.4",
     "serverless-api-gateway-caching": "^1.4.1"
   }
 }
