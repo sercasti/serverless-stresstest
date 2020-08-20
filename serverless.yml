@@ -1,6 +1,6 @@
 plugins:
   - serverless-api-gateway-caching
-  - amazon-dax-client
+
 service: artilleryTesting
 
 custom:
@@ -25,7 +25,16 @@ provider:
     Resource:
       - "Fn::GetAtt": [ OnDemandTableTest, Arn ]
       - "Fn::GetAtt": [ ProvisionedTableTest, Arn ]
+  - Effect: Allow
+    Action:
+      - dax:*
+    Resource: !GetAtt DAXCluster.Arn
+  - Effect: Allow
+    Action:
+      - sqs:SendMessage
+    Resource: !GetAtt SQSQueue.Arn
 
+   
 functions:
   mock: #API Gateway Mock
     handler: handler.mock
@@ -39,7 +48,7 @@ functions:
             template:
               application/json: '{"statusCode": 200}'
           response:
-            template: "Hello World"
+            template: "Hello World Mock"
             statusCodes:
               200:
                 pattern: ''
@@ -86,6 +95,7 @@ functions:
           authorizer: 
             name: authorizerFunction
             type: request
+            identitySource: method.request.querystring.authorization
   
   authorizerFunction:
     handler: authorizerFunc.handler
@@ -107,7 +117,7 @@ functions:
   vanillaDynamoDAX: #API Gateway -> Lambda -> Dynamo (con caché DAX)
     handler: vanillaDynamoDAX.handler
     environment:
-      DAX_ENDPOINT: { Fn::GetAtt: [DaxCluster, ClusterDiscoveryEndpoint] }
+      DAX_ENDPOINT: { Fn::GetAtt: [DAXCluster, ClusterDiscoveryEndpoint] }
     vpc:
     securityGroupIds:
       - Fn::GetAtt: [DAXSecurityGroup, GroupId]
@@ -117,7 +127,13 @@ functions:
       - http:
           path: vanillaDynamoDAX
           method: get
-    role: !GetAtt DAXRole.Arn
+
+  vanillaSQS: #API Gateway -> Lambda -> SQS
+    handler: vanillaSQS.handler
+    events:
+      - http:
+          path: vanillaSQS
+          method: get
 #y VPC lambdas?
 
 resources:
@@ -189,13 +205,11 @@ resources:
                 - Effect: Allow
                   Resource: '*'
                   Action:
-                    - 'dax:PutItem'
-                    - 'dax:GetItem'
                     - 'dynamodb:DescribeTable'
                     - 'dynamodb:GetItem'
                     - 'dynamodb:PutItem'
-        ManagedPolicyArns:
-          - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+                    - 'dynamodb:Query'
+                    - 'dynamodb:Scan'
 
     DAXSecurityGroup:
       Type: AWS::EC2::SecurityGroup
@@ -245,3 +259,8 @@ resources:
         SubnetGroupName: DAXTestGN
         SubnetIds: 
           - !Ref DAXSubnet
+
+    SQSQueue:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "SQSQueue"

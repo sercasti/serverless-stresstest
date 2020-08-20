@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const AmaxonDaxClient = require('amazon-dax-client');
+const AmazonDaxClient = require('amazon-dax-client');
 var daxClient = null;
 
 
@@ -35,11 +35,11 @@ var queryParams = {
 };
 
 exports.handler = async (event, context, callback) => {
-  var dax = new AmazonDaxClient({endpoints: "daxcluster.93br2q.clustercfg.dax.use1.cache.amazonaws.com:8111", region: "us-east-1"})
+  var dax = new AmazonDaxClient({endpoints: [process.env.DAX_ENDPOINT]})
   daxClient = new AWS.DynamoDB.DocumentClient({service: dax });
   daxClient.put(putParams, function(err, data) {});
   daxClient.get(getParams, function(err, data) {});
-  dynamodb.query(queryParams, function(err, data) {
+  daxClient.query(queryParams, function(err, data) {
       data.Items.forEach(function(item) {});
   });
 

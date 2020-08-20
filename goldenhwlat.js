@@ -3,7 +3,7 @@ const express = require('express')
 const app = express()
 const https = require('https')
 
-app.get('/expressHWL', function (req, res) {
+app.get('/goldenhwlat', function (req, res) {
   res.send('Hello World with Latency!')
 })
 

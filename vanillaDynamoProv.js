@@ -41,5 +41,5 @@ exports.handler = async (event, context, callback) => {
         data.Items.forEach(function(item) {});
     });
 
-    return {"statusCode": 200,"body": JSON.stringify({"message": "Hello World Dynamo On Demand!"})};
+    return {"statusCode": 200,"body": JSON.stringify({"message": "Hello World Dynamo Provisioned!"})};
 };

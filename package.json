@@ -2,9 +2,10 @@
   "name": "artilleryTesting",
   "description": "",
   "version": "0.1.0",
-  "dependencies": {},
-  "devDependencies": {
+  "dependencies": {
     "amazon-dax-client": "^1.2.4",
-    "serverless-api-gateway-caching": "^1.4.1"
+    "express": "^4.17.1",
+    "serverless-api-gateway-caching": "^1.4.1",
+    "serverless-http": "^2.5.0"
   }
 }
