@@ -28,7 +28,13 @@ exports.handler = async (event, context, callback) => {
         QueueUrl: queueUrl
       };
 
-    sqs.sendMessage(params, function(err, data) {
-    });
+    const response = await new Promise((resolve, reject) => {
+      sqs.sendMessage(params, function(err, data) {
+        resolve({
+          statusCode: 200,
+          body: JSON.stringify({"message": "Hello World!"})
+        })
+      })
+    })
     return {"statusCode": 200,"body": JSON.stringify({"message": "Hello World SQS!"})};
 };
