@@ -35,13 +35,22 @@ var queryParams = {
 };
 
 exports.handler = async (event, context, callback) => {
-  var dax = new AmazonDaxClient({endpoints: [process.env.DAX_ENDPOINT]})
-  daxClient = new AWS.DynamoDB.DocumentClient({service: dax });
-  daxClient.put(putParams, function(err, data) {});
-  daxClient.get(getParams, function(err, data) {});
-  daxClient.query(queryParams, function(err, data) {
-      data.Items.forEach(function(item) {});
-  });
+    const response = await new Promise((resolve, reject) => {
+        var dax = new AmazonDaxClient({endpoints: [process.env.DAX_ENDPOINT]})
+        daxClient = new AWS.DynamoDB.DocumentClient({service: dax });
+        daxClient.put(putParams, function(err, data) {});
+        
+        daxClient.query(queryParams, function(err, data) {
+            data.Items.forEach(function(item) {});
+        });
+        daxClient.get(getParams, function(err, data) {
+            resolve({
+                statusCode: 200,
+                body: JSON.stringify({"message": "Hello World!"})
+            })
+        });
+        
+    })
 
   return {"statusCode": 200,"body": JSON.stringify({"message": "Hello World Dynamo DAX!"})};
 };

@@ -35,11 +35,18 @@ var queryParams = {
 };
 
 exports.handler = async (event, context, callback) => {
-    docClient.put(putParams, function(err, data) {});
-    docClient.get(getParams, function(err, data) {});
-    docClient.query(queryParams, function(err, data) {
-        data.Items.forEach(function(item) {});
-    });
-
+    const response = await new Promise((resolve, reject) => {
+        docClient.put(putParams, function(err, data) {});
+        
+        docClient.query(queryParams, function(err, data) {
+            data.Items.forEach(function(item) {});
+        });
+        docClient.get(getParams, function(err, data) {
+            resolve({
+                statusCode: 200,
+                body: JSON.stringify({"message": "Hello World!"})
+            })
+        });
+    })
     return {"statusCode": 200,"body": JSON.stringify({"message": "Hello World Dynamo Provisioned!"})};
 };
