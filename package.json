@@ -5,6 +5,7 @@
   "dependencies": {
     "amazon-dax-client": "^1.2.4",
     "express": "^4.17.1",
+    "serverless": "^1.80.0",
     "serverless-api-gateway-caching": "^1.4.1",
     "serverless-http": "^2.5.0"
   }

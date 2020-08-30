@@ -2,12 +2,11 @@ const AWS = require('aws-sdk');
 const AmazonDaxClient = require('amazon-dax-client');
 var daxClient = null;
 
-
-var putParams = {
+const putParams = {
     TableName: "OnDemandTableTest",
     Item:{
-        "userId": "userIdDAX",
-        "noteId": "noteIdDAX",
+        "userId": "userId",
+        "noteId": "noteId",
         "info":{
             "plot": "Nothing happens at all.",
             "rating": 0
@@ -15,42 +14,44 @@ var putParams = {
     }
 };
 
-var getParams = {
+const getParams = {
     TableName: "OnDemandTableTest",
     Key:{
-        "userId": "userIdDAX",
-        "noteId": "userIdDAX"
+        "userId": "userId",
+        "noteId": "noteId"
     }
-};
+}
 
-var queryParams = {
+const params = {
     TableName : "OnDemandTableTest",
-    KeyConditionExpression: "#userId = :userId",
-    ExpressionAttributeNames:{
-        "#userId": "userId"
-    },
+    KeyConditionExpression: "userId = :userId",
     ExpressionAttributeValues: {
-        ":userId": "userIdDAX"
+        ":userId":"userId"
     }
-};
+}
 
-exports.handler = async (event, context, callback) => {
-    const response = await new Promise((resolve, reject) => {
-        var dax = new AmazonDaxClient({endpoints: [process.env.DAX_ENDPOINT]})
-        daxClient = new AWS.DynamoDB.DocumentClient({service: dax });
-        daxClient.put(putParams, function(err, data) {});
-        
-        daxClient.query(queryParams, function(err, data) {
-            data.Items.forEach(function(item) {});
+exports.handler = async (event, context) => {
+    var dax = new AmazonDaxClient({endpoints: [process.env.DAX_ENDPOINT]})
+    daxClient = new AWS.DynamoDB.DocumentClient({service: dax });
+    
+    await new Promise((resolve, reject) => {
+        daxClient.put(putParams, (err, data) => {
+            resolve(data);
         });
-        daxClient.get(getParams, function(err, data) {
+    });
+    
+    await new Promise((resolve, reject) => {
+        daxClient.query(params, (err, data) => {
+            resolve(data);
+        });
+    });
+    
+    return await new Promise((resolve, reject) => {
+        daxClient.get(getParams, (err, data) => {
             resolve({
                 statusCode: 200,
-                body: JSON.stringify({"message": "Hello World!"})
+                body: JSON.stringify(data)
             })
         });
-        
     })
-
-  return {"statusCode": 200,"body": JSON.stringify({"message": "Hello World Dynamo DAX!"})};
 };

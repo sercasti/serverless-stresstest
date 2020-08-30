@@ -75,7 +75,6 @@ functions:
           path: goldenhwlat
           method: get
 
-# Deberia ser Golden?
   vanillaCachedHelloWorld: #API Gateway (con Caché activado) -> Lambda (responde “Hello World”)
     handler: vanillaCached.handler
     events:
@@ -100,14 +99,14 @@ functions:
   authorizerFunction:
     handler: authorizerFunc.handler
     
-  vanillaDynamoOD: #API Gateway -> Lambda -> DynamoDB (Default Capacity)
+  vanillaDynamoProv: #API Gateway -> Lambda -> DynamoDB (Default Capacity)
     handler: vanillaDynamoProv.handler
     events:
       - http:
           path: vanillaDynamoProv
           method: get
 
-  vanillaDynamoProv: #API Gateway -> Lambda -> DynamoDB (On - Demand Capacity)
+  vanillaDynamoOD: #API Gateway -> Lambda -> DynamoDB (On - Demand Capacity)
     handler: vanillaDynamoOD.handler
     events:
       - http:
@@ -119,10 +118,10 @@ functions:
     environment:
       DAX_ENDPOINT: { Fn::GetAtt: [DAXCluster, ClusterDiscoveryEndpoint] }
     vpc:
-    securityGroupIds:
-      - Fn::GetAtt: [DAXSecurityGroup, GroupId]
-    subnetIds:
-      - Ref: DAXSubnet
+      securityGroupIds:
+        - Fn::GetAtt: [DAXSecurityGroup, GroupId]
+      subnetIds:
+        - Ref: DAXSubnet
     events:
       - http:
           path: vanillaDynamoDAX

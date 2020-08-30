@@ -1,9 +1,7 @@
-console.log('Loading function');
+const AWS = require('aws-sdk');
+const docClient = new AWS.DynamoDB.DocumentClient();
 
-var AWS = require("aws-sdk");
-var docClient = new AWS.DynamoDB.DocumentClient();
-
-var putParams = {
+const putParams = {
     TableName: "OnDemandTableTest",
     Item:{
         "userId": "userId",
@@ -15,39 +13,41 @@ var putParams = {
     }
 };
 
-var getParams = {
+const getParams = {
     TableName: "OnDemandTableTest",
     Key:{
         "userId": "userId",
         "noteId": "noteId"
     }
-};
+}
 
-var queryParams = {
+const params = {
     TableName : "OnDemandTableTest",
-    KeyConditionExpression: "#userId = :userId",
-    ExpressionAttributeNames:{
-        "#userId": "userId"
-    },
+    KeyConditionExpression: "userId = :userId",
     ExpressionAttributeValues: {
-        ":userId": "userId"
+        ":userId":"userId"
     }
-};
+}
 
-exports.handler = async (event, context, callback) => {
-    const response = await new Promise((resolve, reject) => {
-        docClient.put(putParams, function(err, data) {});
-       
-        docClient.query(queryParams, function(err, data) {
-            data.Items.forEach(function(item) {});
+exports.handler = async (event, context) => {
+    await new Promise((resolve, reject) => {
+        docClient.put(putParams, (err, data) => {
+            resolve(data);
         });
-        docClient.get(getParams, function(err, data) {
+    });
+
+    await new Promise((resolve, reject) => {
+        docClient.query(params, (err, data) => {
+            resolve(data);
+        });
+    });
+    
+    return await new Promise((resolve, reject) => {
+        docClient.get(getParams, (err, data) => {
             resolve({
                 statusCode: 200,
-                body: JSON.stringify({"message": "Hello World!"})
+                body: JSON.stringify(data)
             })
         });
     })
-
-    return {"statusCode": 200,"body": JSON.stringify({"message": "Hello World Dynamo On Demand!"})};
 };
