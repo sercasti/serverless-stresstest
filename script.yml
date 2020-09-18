@@ -1,0 +1,44 @@
+#Puedo usar el script.yml asi suelto dentro del mismo folder y solo instalar slsart desde npm?
+#o tengo que usar los archivos con el source de artillery para poder tocar el serverless.yml
+#como otro proyecto separado?
+config:
+  target: 'https://r5a2inwhbl.execute-api.us-east-1.amazonaws.com/test'
+  phases: # array of phase definitions that Artillery goes through sequentially.     
+    # Ramp up arrival rate from 10 to 50 over 2 minutes
+    - duration: 120 # how long virtual users will be generated for.
+      arrivalRate: 10 # Create 10 virtual users every second
+      rampTo: 50
+      name: "Warm up the application"
+    # followed by 10 minutes at 50 arrivals per second.
+    - duration: 600
+      arrivalRate: 80
+      name: "Sustained max load"
+  defaults:
+    headers:
+      authorization: "foobar"
+  plugins: #TODO test, does it work without custom serverless.yml?
+    metrics-by-endpoint: {}
+    cloudwatch:
+      namespace: "performance_tests"
+scenarios:
+  - flow:
+    - get:
+        url: "/mock"
+    - get:
+        url: "/vanilla"
+    - get:
+        url: "/goldenhw"
+    - get:
+        url: "/goldenhwlat"
+    - get:
+        url: "/vanillaCached"
+    - get:
+        url: "/vanillaAuthorizer"
+    - get:
+        url: "/vanillaDynamoProv"
+    - get:
+        url: "/vanillaDynamoOD"
+    - get:
+        url: "/vanillaDynamoDAX"
+    - get:
+        url: "/vanillaSQS"

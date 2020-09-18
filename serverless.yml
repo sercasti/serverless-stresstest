@@ -219,7 +219,8 @@ resources:
   
     DAXSecurityGroupIngress:
       Type: AWS::EC2::SecurityGroupIngress
-      DependsOn: DAXSecurityGroup
+      DependsOn: 
+        - DAXSecurityGroup
       Properties:
         GroupId: !GetAtt DAXSecurityGroup.GroupId
         IpProtocol: tcp
