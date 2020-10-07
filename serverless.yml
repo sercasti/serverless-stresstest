@@ -1,7 +1,7 @@
+service: serverless-artillery
+
 plugins:
   - serverless-api-gateway-caching
-
-service: artilleryTesting
 
 custom:
   apiGatewayCaching:
@@ -9,33 +9,73 @@ custom:
 
 provider:
   name: aws
-  runtime: nodejs12.x
+  runtime: nodejs10.x #nodejs12.x TODO version node? version serverless? DAX rompe
   stage: test
   region: us-east-1
+  timeout: 30
   iamRoleStatements:
-  - Effect: Allow
-    Action:
-      - dynamodb:DescribeTable
-      - dynamodb:Query
-      - dynamodb:Scan
-      - dynamodb:GetItem
-      - dynamodb:PutItem
-      - dynamodb:UpdateItem
-      - dynamodb:DeleteItem
-    Resource:
-      - "Fn::GetAtt": [ OnDemandTableTest, Arn ]
-      - "Fn::GetAtt": [ ProvisionedTableTest, Arn ]
-  - Effect: Allow
-    Action:
-      - dax:*
-    Resource: !GetAtt DAXCluster.Arn
-  - Effect: Allow
-    Action:
-      - sqs:SendMessage
-    Resource: !GetAtt SQSQueue.Arn
-
-   
+    - Effect: 'Allow'
+      Action:
+        - 'lambda:InvokeFunction'
+      Resource:
+        'Fn::Join':
+          - ':'
+          -
+            - 'arn:aws:lambda'
+            - Ref: 'AWS::Region'
+            - Ref: 'AWS::AccountId'
+            - 'function'
+            - '${self:service}-${opt:stage, self:provider.stage}-loadGenerator*' # must match function name
+    - Effect: 'Allow'
+      Action:
+        - 'sns:Publish'
+      Resource:
+        Ref: monitoringAlerts
+    - Effect: 'Allow'
+      Action:
+        - 'cloudwatch:PutMetricData'
+      Resource:
+        - '*'
+    - Effect: Allow
+      Action:
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - "Fn::GetAtt": [ OnDemandTableTest, Arn ]
+        - "Fn::GetAtt": [ ProvisionedTableTest, Arn ]
+    - Effect: Allow
+      Action:
+        - dax:*
+      Resource: !GetAtt DAXCluster.Arn
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+      Resource: !GetAtt SQSQueue.Arn  
 functions:
+  loadGenerator: 
+    handler: handler.handler   
+    timeout: 300
+    environment:
+      TOPIC_ARN:
+        Ref: monitoringAlerts
+      TOPIC_NAME:
+        'Fn::GetAtt':
+          - monitoringAlerts
+          - TopicName
+    events:
+      - schedule:
+          name: '${self:service}-${opt:stage, self:provider.stage}-monitoring' # !!Do not edit this name!!
+          description: The scheduled event for running the function in monitoring mode
+          rate: rate(1 minute)
+          enabled: false
+          input:
+            '>>': script.yml
+            mode: monitoring
   mock: #API Gateway Mock
     handler: handler.mock
     events:
@@ -54,29 +94,54 @@ functions:
                 pattern: ''
 
   vanillaHelloWorld: #API Gateway -> Lambda (responde “Hello World”)
-    handler: vanilla.handler
+    handler: myFunctions/vanilla.handler
     events:
       - http:
           path: vanilla
           cors: true
           method: get
           
-  goldenHelloWorld: #API Gateway -> Lambda (con Golden API, responde “Hello World!”)
-    handler: goldenhw.handler
+  goldenHelloWorld: #API Gateway -> Lambda (con Golden lambda, responde “Hello World!”)
+    handler: myFunctions/goldenhw.handler
     events:
       - http: 
           path: goldenhw
           method: get
 
-  goldenHelloWorldLatency: #API Gateway -> Lambda (con Golden API, invoca un servicio http - 100% estable pero con latencia de 2000ms)
-    handler: goldenhwlat.handler
+  goldenHelloWorldLatency: #API Gateway -> Lambda (con Golden lambda, invoca un servicio http - 100% estable pero con latencia de 2000ms)
+    handler: myFunctions/goldenhwlat.handler
     events:
       - http: 
           path: goldenhwlat
           method: get
 
+  goldenHelloWorldLatencyKeepAlive: #API Gateway -> Lambda (con Golden lambda, invoca un servicio http - 100% estable pero con latencia de 2000ms, con keep alive)
+    handler: myFunctions/goldenhwlatka.handler
+    environment:
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1"
+    events:
+      - http: 
+          path: goldenhwlatka
+          method: get
+
+  vanillaHelloWorldLatency: #API Gateway -> Lambda (sin Golden lambda, invoca un servicio http - 100% estable pero con latencia de 2000ms)
+    handler: myFunctions/vanillahwlat.handler
+    environment:
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1"
+    events:
+      - http: 
+          path: vanillahwlat
+          method: get
+  
+  vanillaHelloWorldLatencyKeepAlive: #API Gateway -> Lambda (sin Golden lambda, invoca un servicio http - 100% estable pero con latencia de 2000ms, con keep alive)
+    handler: myFunctions/vanillahwlatka.handler
+    events:
+      - http: 
+          path: vanillahwlatka
+          method: get
+
   vanillaCachedHelloWorld: #API Gateway (con Caché activado) -> Lambda (responde “Hello World”)
-    handler: vanillaCached.handler
+    handler: myFunctions/vanillaCached.handler
     events:
       - http:
           path: vanillaCached
@@ -86,7 +151,7 @@ functions:
             enabled: true
 
   vanillaAuthorizer: #API Gateway (con el Authorizer de Shared Services) -> Lambda
-    handler: vanillaAuthorizer.handler
+    handler: myFunctions/vanillaAuthorizer.handler
     events:
       - http:
           path: vanillaAuthorizer
@@ -97,24 +162,24 @@ functions:
             identitySource: method.request.querystring.authorization
   
   authorizerFunction:
-    handler: authorizerFunc.handler
+    handler: myFunctions/authorizerFunc.handler
     
   vanillaDynamoProv: #API Gateway -> Lambda -> DynamoDB (Default Capacity)
-    handler: vanillaDynamoProv.handler
+    handler: myFunctions/vanillaDynamoProv.handler
     events:
       - http:
           path: vanillaDynamoProv
           method: get
 
   vanillaDynamoOD: #API Gateway -> Lambda -> DynamoDB (On - Demand Capacity)
-    handler: vanillaDynamoOD.handler
+    handler: myFunctions/vanillaDynamoOD.handler
     events:
       - http:
           path: vanillaDynamoOD
           method: get
 
   vanillaDynamoDAX: #API Gateway -> Lambda -> Dynamo (con caché DAX)
-    handler: vanillaDynamoDAX.handler
+    handler: myFunctions/vanillaDynamoDAX.handler
     environment:
       DAX_ENDPOINT: { Fn::GetAtt: [DAXCluster, ClusterDiscoveryEndpoint] }
     vpc:
@@ -128,15 +193,19 @@ functions:
           method: get
 
   vanillaSQS: #API Gateway -> Lambda -> SQS
-    handler: vanillaSQS.handler
+    handler: myFunctions/vanillaSQS.handler
     events:
       - http:
           path: vanillaSQS
           method: get
-#y VPC lambdas?
 
+  
 resources:
   Resources:
+    monitoringAlerts: # !!Do not edit this name!!
+      Type: 'AWS::SNS::Topic'
+      Properties:
+        DisplayName: '${self:service} Monitoring Alerts'
     OnDemandTableTest:
       Type: AWS::DynamoDB::Table
       Properties:

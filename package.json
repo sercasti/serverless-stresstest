@@ -1,5 +1,5 @@
 {
-  "name": "artilleryTesting",
+  "name": "artillery",
   "description": "",
   "version": "0.1.0",
   "dependencies": {
@@ -7,8 +7,7 @@
     "artillery-plugin-cloudwatch": "0.0.3",
     "artillery-plugin-metrics-by-endpoint": "^0.1.1",
     "express": "^4.17.1",
-    "serverless": "^1.80.0",
-    "serverless-api-gateway-caching": "^1.4.1",
-    "serverless-http": "^2.5.0"
+    "serverless-api-gateway-caching": "^1.5.0",
+    "serverless-http": "^2.6.0"
   }
 }

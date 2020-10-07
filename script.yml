@@ -1,44 +1,54 @@
-#Puedo usar el script.yml asi suelto dentro del mismo folder y solo instalar slsart desde npm?
-#o tengo que usar los archivos con el source de artillery para poder tocar el serverless.yml
-#como otro proyecto separado?
-config:
-  target: 'https://r5a2inwhbl.execute-api.us-east-1.amazonaws.com/test'
+config:   
+  target: 'https://kx545uvmnf.execute-api.us-east-1.amazonaws.com/test'
   phases: # array of phase definitions that Artillery goes through sequentially.     
     # Ramp up arrival rate from 10 to 50 over 2 minutes
     - duration: 120 # how long virtual users will be generated for.
-      arrivalRate: 10 # Create 10 virtual users every second
+      arrivalRate: 5 # Create 10 virtual users every second
       rampTo: 50
       name: "Warm up the application"
-    # followed by 10 minutes at 50 arrivals per second.
+    - duration: 120
+      arrivalRate: 50
+      rampTo: 90
+      name: "Ramp up load"
+    # followed by 10 minutes at 90 arrivals per second.
     - duration: 600
-      arrivalRate: 80
-      name: "Sustained max load"
+      arrivalRate: 130
+      name: "Sustained max load"  
   defaults:
     headers:
       authorization: "foobar"
-  plugins: #TODO test, does it work without custom serverless.yml?
+  plugins: 
     metrics-by-endpoint: {}
     cloudwatch:
       namespace: "performance_tests"
+      
 scenarios:
   - flow:
     - get:
-        url: "/mock"
+        url: "/mock" #Mock endpoint
     - get:
-        url: "/vanilla"
+        url: "/vanilla" #Hello World plain node
     - get:
-        url: "/goldenhw"
+        url: "/goldenhw" #Hello World express 
     - get:
-        url: "/goldenhwlat"
+        url: "/goldenhwlat" #Hello World express with 2000ms latency call
     - get:
-        url: "/vanillaCached"
+        url: "/goldenhwlatka" #Hello World express with 2000ms latency call, keep alive
     - get:
-        url: "/vanillaAuthorizer"
+        url: "/vanillahwlat" #Hello World plain node with 2000ms latency call
     - get:
-        url: "/vanillaDynamoProv"
+        url: "/vanillahwlatka" #Hello World plain node with 2000ms latency call, keep alive
     - get:
-        url: "/vanillaDynamoOD"
+        url: "/vanillaCached" #Hello World plain node with APIGW cached results
     - get:
-        url: "/vanillaDynamoDAX"
+        url: "/vanillaAuthorizer" #Hello World plain node con Authorizer 
     - get:
-        url: "/vanillaSQS"
+        url: "/vanillaDynamoProv" #Hello World plain node con dynamo provisioned
+    - get:
+        url: "/vanillaDynamoOD" #Hello World plain node con dynamo On Demand
+    - get:
+        url: "/vanillaDynamoDAX" #Hello World plain node con dynamo DAX
+    - get:
+        url: "/vanillaSQS" #Hello World plain node con SQS
+   
+    
